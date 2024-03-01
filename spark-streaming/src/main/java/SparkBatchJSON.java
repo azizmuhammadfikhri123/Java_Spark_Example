@@ -11,16 +11,6 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class SparkBatchJSON {
-  public static <T> T getNestedValue(Map map, String... keys) {
-    Object value = map;
-
-    for (String key : keys) {
-      value = ((Map) value).get(key);
-    }
-
-    return (T) value;
-  }
-
   public static void main(String[] args) {
     ObjectMapper om = new ObjectMapper();
 
@@ -35,13 +25,18 @@ public class SparkBatchJSON {
       .config("spark.es.nodes.wan.only", "true") // Use only WAN IP addresses
       .getOrCreate();
 
+    // read file JSON
     Dataset<Row> news = spark.read()
       .json("/home/be-azizmuhammadf/Documents/BELAJAR/SPRING BOOT/spark-streaming/src/main/java/data_sample/news.json");
+    
+    news.createOrReplaceTempView("twitter_data");
 
-    news.printSchema();
-    news.show(false);
+    // SELECT DATA
+    Dataset<Row> user_info = spark.sql("SELECT user.id , user.username, user.location, user.favouritesCount, user.friendsCount, user.followersCount, user.mediaCount, user.favouritesCount, user.listedCount, user.mediaCount, user.verified, content, date FROM twitter_data WHERE user IS NOT NULL");
+    user_info.printSchema();
+    user_info.show(false);
 
-    JavaRDD<Row> data_rdd = news.javaRDD();
+    JavaRDD<Row> data_rdd = user_info.javaRDD();
     JavaRDD<Map<String, Object>> userMapRDD = data_rdd.map(row -> {
       Map<String, Object> finalMap = new HashMap<>();
       String jsonString = row.json();
@@ -52,13 +47,13 @@ public class SparkBatchJSON {
       long timeInMillis = d.getTime();
       finalMap.put("id", map.get("id"));
       finalMap.put("created_at",timeInMillis);
-      finalMap.put("username", getNestedValue(map, "user", "username"));
-      finalMap.put("location", getNestedValue(map, "user", "location") == null || getNestedValue(map, "user", "location") == "" ? "" : getNestedValue(map,"user","location"));
-      finalMap.put("favouritesCount", getNestedValue(map, "user", "favouritesCount"));
-      finalMap.put("friendsCount", getNestedValue(map, "user", "friendsCount"));
-      finalMap.put("followersCount", getNestedValue(map, "user", "followersCount"));
-      finalMap.put("mediaCount", getNestedValue(map, "user", "mediaCount"));
-      finalMap.put("verified", getNestedValue(map, "user", "verified"));
+      finalMap.put("username", map.get("username"));
+      finalMap.put("location", map.get("location") == null || map.get("location") == "" ? "" : map.get("location"));
+      finalMap.put("favouritesCount", map.get("favouritesCount"));
+      finalMap.put("friendsCount", map.get("friendsCount"));
+      finalMap.put("followersCount", map.get("followersCount"));
+      finalMap.put("mediaCount", map.get("mediaCount"));
+      finalMap.put("verified", map.get("verified"));
       finalMap.put("description", map.get("content").toString().trim());
 
       return finalMap;
